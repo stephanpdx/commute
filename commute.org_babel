@@ -1,0 +1,88 @@
+#+Title: Analysis of commute patterns 
+#+Author: Stephan Lindner
+
+* Codebook 
+
+  |-----------+-----------------------------------------------+-----------|
+  | Name      | Description                                   | Comment   |
+  |-----------+-----------------------------------------------+-----------|
+  | YEAR      | Census year                                   |           |
+  | DATANUM   |                                               |           |
+  | SERIAL    |                                               |           |
+  | HHWT      |                                               |           |
+  | GQ        | Group quarter status                          |           |
+  | OWNERSHP  | Ownership of dwelling [general version]       |           |
+  | OWNERSHPD | Ownership of dwelling [detailed version]      |           |
+  | HHINCOME  |                                               |           |
+  | PERNUM    |                                               |           |
+  | PERWT     |                                               |           |
+  | HIGRADE   | Highest grade of schooling [general version]  | Only 1980 |
+  | HIGRADED  | Highest grade of schooling [detailed version] | Only 1980 |
+  | EDUC      | Educational attainment [general version]      |           |
+  | EDUCD     | Educational attainment [detailed version]     |           |
+  | EMPSTAT   | Employment status [general version]           |           |
+  | EMPSTATD  | Employment status [detailed version]          |           |
+  | WRKLSTWK  | Worked last week                              |           |
+  | PWMETRO   | Place of work: metropolitan area              |           |
+  | PWCITY    | Place of work: city                           |           |
+  | PWTYPE    | Place of work: metropolitan status            | Only 1980 |
+  | PWTYPE00  | Place of work: metropolitan status, 2000      | Only 1980 |
+  | PWCNTYGP  |                                               |           |
+  | TRANWORK  | Means of transportation to work               |           |
+  | CARPOOL   | Carpooling                                    |           |
+  | RIDERS    | Vehicle occupancy                             |           |
+  | TRANTIME  |                                               |           |
+  |-----------+-----------------------------------------------+-----------|
+  
+* Analysis
+  :PROPERTIES:
+  :header-args: :session *R* :results silent
+  :END:
+** Set wd, load packages
+   #+BEGIN_SRC R
+     ## Set wd
+     setwd("~/Projects/Commute")
+
+
+     ## Load packages
+     require(haven, data.table)
+
+
+     ## Load ACS
+     acs        <- read_dta(paste("Data/usa_000", max(as.numeric(substr(dir("Data/")[grepl("dta", dir("Data/"))],5,9))), ".dta", sep=""))
+     names(acs) <- tolower(names(acs))
+
+
+     ## Set as data table
+     acs <- data.table(acs)
+     setkey(acs, year, pernum)
+   #+END_SRC
+** Caculate modal share over time
+   #+BEGIN_SRC R
+     ## Create commuting mode variable
+     acs[(tranwork %in% c(10,11,12,13,14,15,20) & carpool==1), commute.mode:=1]
+     acs[(tranwork %in% c(10,11,12,13,14,15,20) & carpool!=1), commute.mode:=2]
+     acs[(tranwork %in% c(30,31,32,33,34      )             ), commute.mode:=3]
+     acs[ tranwork == 40                                     , commute.mode:=4]
+     acs[ tranwork == 50                                     , commute.mode:=5]
+     acs[ tranwork == 70                                     , commute.mode:=6]
+     acs[ tranwork %in% c(00,35,36,60)                       , commute.mode:=7]
+
+     acs[, commute.mode = as.factor(commute.mode,
+                                    labels = c("Drive alone", "Carpool", "Public transport",
+                                               "Bike", "Walk", "Telecommute", "other"))]
+
+
+     ## Calculate unconditional modal share, Portland city
+     lapply(levels(acs[["commute.mode"]],                                       function(c) acs[pwcity==5530                              , sum(perwt*commute.mode==c)/sum(perwt), by(year)]))
+
+     ## Calculate conditional modal share, Portland city
+     lapply(levels(acs[["commute.mode"]][acs[["commute.mode"]]!="Telecommute"], function(c) acs[pwcity==5530 & commute.mode!="Telecommute", sum(perwt*commute.mode==c)/sum(perwt), by(year)]))
+
+     ## Calculate unconditional modal share, Portland metro area
+     lapply(levels(acs[["commute.mode"]]                                      , function(c) acs[pwmetro==6440                             , sum(perwt*commute.mode==c)/sum(perwt), by(year)]))
+
+     ## Calculate conditional modal share, Portland metro are
+     lapply(levels(acs[["commute.mode"]][acs[["commute.mode"]]!="Telecommute"], function(c) acs[pwmetro==6440 & commute.mode!="Telecommute", sum(perwt*commute.mode==c)/sum(perwt), by(year)]))
+
+   #+END_SRC
