@@ -1,0 +1,13 @@
+Data/
+
+*.aux
+*.bcf
+*.blg
+*.bst
+*.fmt
+*.log
+*.prv/
+*.pyg
+*.Rhistory
+*.run.xml
+_region_*
